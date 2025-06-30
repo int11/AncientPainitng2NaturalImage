@@ -10,7 +10,7 @@ class BaseOptions():
         self.initialized = False
 
     def initialize(self):
-        self.parser.add_argument('--dataroot', required=True, help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
+        self.parser.add_argument('--dataroot', type=str, default='./data/Bird/', help='path to images (should have subfolders trainA, trainB, valA, valB, etc)')
         self.parser.add_argument('--batchSize', type=int, default=1, help='input batch size')
         self.parser.add_argument('--loadSize', type=int, default=286, help='scale images to this size')
         self.parser.add_argument('--fineSize', type=int, default=256, help='then crop to this size')
@@ -40,8 +40,8 @@ class BaseOptions():
         self.parser.add_argument('--vgg_model_dir', type=str, default='./data/vgg', help='the path to vggNet model')
         self.parser.add_argument('--alpha_G', type=float, default=1.0, help='weight for cycle loss (A -> B -> A)')
         self.parser.add_argument('--alpha_F', type=float, default=0.5, help='weight for cycle loss (B -> A -> B)')
-        self.parser.add_argument('--beta', type=float, default=10, help='weight for content loss (A -> B)')
-        self.parser.add_argument('--gamma', type=float, default=1, help='weight for content loss (B -> A)')
+        self.parser.add_argument('--beta', type=float, default=10.0, help='weight for content loss (A -> B)')
+        self.parser.add_argument('--gamma', type=float, default=1.0, help='weight for content loss (B -> A)')
         # self.parser.add_argument('--w1', type=float, default=0.5, help='weight for D loss Ture')
         # self.parser.add_argument('--w2', type=float, default=0, help='weight for D loss False')
         # self.parser.add_argument('--w3', type=float, default=0.5, help='weight for D loss False')

@@ -18,11 +18,11 @@ def get_transform(opt):
         print (opt.phase)
         if opt.phase == 'train':
             osize = [opt.loadSize, opt.loadSize]
-            transform_list.append(transforms.Scale(osize, Image.BICUBIC))
+            transform_list.append(transforms.Resize(osize, Image.BICUBIC))
             transform_list.append(transforms.RandomCrop(opt.fineSize))
         elif opt.phase == 'test':
             osize = [opt.loadSize, opt.loadSize]
-            transform_list.append(transforms.Scale(osize, Image.BICUBIC))
+            transform_list.append(transforms.Resize(osize, Image.BICUBIC))
     elif opt.resize_or_crop == 'crop':
         transform_list.append(transforms.RandomCrop(opt.fineSize))
     elif opt.resize_or_crop == 'scale_width':

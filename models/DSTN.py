@@ -9,8 +9,8 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 import sys
-import net
-from net import Net, Vgg16
+from . import net
+from .net import Net, Vgg16
 
 class DSTN(BaseModel):
     def name(self):

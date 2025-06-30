@@ -13,7 +13,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.utils.serialization import load_lua
+# from torch.utils.serialization import load_lua  # Deprecated in newer PyTorch
 from torchvision import datasets, models, transforms
 #from models.networks import *
 def preprocess_batch(batch):
@@ -37,15 +37,34 @@ def subtract_imagenet_mean_batch(batch):
 
 def init_vgg16(model_folder):
     """load the vgg16 model feature"""
+    # Create directory if it doesn't exist
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+        
     if not os.path.exists(os.path.join(model_folder, 'vgg16.weight')):
-        if not os.path.exists(os.path.join(model_folder, 'vgg16.t7')):
-            print ('vgg16.t7 is not found')
-            os.system(
-                'wget http://cs.stanford.edu/people/jcjohns/fast-neural-style/models/vgg16.t7 -O ' + os.path.join(model_folder, 'vgg16.t7'))
-        vgglua = load_lua(os.path.join(model_folder, 'vgg16.t7'))
+        # Use torchvision's pretrained VGG16 instead of loading from Lua
+        try:
+            vgg_pretrained = models.vgg16(weights='VGG16_Weights.IMAGENET1K_V1')
+        except:
+            # Fallback for older torchvision versions
+            vgg_pretrained = models.vgg16(pretrained=True)
+        
         vgg = Vgg16()
-        for (src, dst) in zip(vgglua.parameters()[0], vgg.parameters()):
-            dst.data[:] = src
+        
+        # Map pretrained weights to custom VGG16
+        vgg_features = list(vgg_pretrained.features.children())
+        custom_layers = [
+            'conv1_1', 'conv1_2', 'conv2_1', 'conv2_2', 'conv3_1', 'conv3_2', 'conv3_3',
+            'conv4_1', 'conv4_2', 'conv4_3', 'conv5_1', 'conv5_2', 'conv5_3'
+        ]
+        
+        layer_idx = 0
+        for i, layer in enumerate(vgg_features):
+            if isinstance(layer, nn.Conv2d) and layer_idx < len(custom_layers):
+                getattr(vgg, custom_layers[layer_idx]).weight.data = layer.weight.data.clone()
+                getattr(vgg, custom_layers[layer_idx]).bias.data = layer.bias.data.clone()
+                layer_idx += 1
+        
         torch.save(vgg.state_dict(), os.path.join(model_folder, 'vgg16.weight'))
 
 def var(x, dim=0):
