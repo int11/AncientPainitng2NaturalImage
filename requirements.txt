@@ -1,7 +1,6 @@
 torch
 torchvision
 dominate
-visdom
 beautifulsoup4
 requests
 lxml
