@@ -1,2 +1,3 @@
-data/
+data/vgg
+datasets/
 *.pyc
