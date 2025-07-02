@@ -1,10 +1,10 @@
 from __future__ import print_function
 import os
 import tarfile
+import kagglehub
 import requests
 from warnings import warn
 from zipfile import ZipFile
-from bs4 import BeautifulSoup
 from os.path import abspath, isdir, join, basename
 
 
@@ -39,7 +39,8 @@ class GetData(object):
             'ancient_painting_bird': 'https://drive.usercontent.google.com/download?id=1G67wmjjunArntetMnxQq0g93BuDSC8XL&export=download&authuser=0&confirm=t&uuid=e6d89ffc-b1aa-4212-871c-e21ea8b7baf1&at=AN8xHoq8U8_c7h5Z_m_wRthSMTyu:1750930357938',
             'ancient_painting_flower': 'https://drive.usercontent.google.com/download?id=1ARzNtGvi_-9woQYckgg835WFhHYbF3kE&export=download&authuser=0&confirm=t&uuid=a1c790e2-04cb-4b3e-abd8-e86171a5fd4f&at=AN8xHoorj5I0yYpB-Xkj8m136AdH:1750930364822',
             'ancient_painting_landscape': 'https://drive.usercontent.google.com/download?id=1K4ujNMTvE-bxWcN-kV-_jRP9S8zfeThp&export=download&authuser=0&confirm=t&uuid=7e56b8a3-8207-4d39-85c3-6fbcb5b338d3&at=AN8xHoo9OOE8MWotvFGpebMiBy1j:1750930367836',
-            'traditional_chinese_landscape_painting': 'https://github.com/alicex2020/Chinese-Landscape-Painting-Dataset/archive/refs/heads/main.zip'
+            'traditional_chinese_landscape_painting': 'https://github.com/alicex2020/Chinese-Landscape-Painting-Dataset/archive/refs/heads/main.zip',
+            'lhq_1024': 'dimensi0n/lhq-1024'
         }
         self.url_dict = url_dict  # Store the dict for ancient painting methods
         self._verbose = verbose
@@ -254,24 +255,64 @@ class GetData(object):
         self._print('All Ancient Painting Datasets Downloaded Successfully!')
         return dataset_paths
 
+    def get_lhq_1024_dataset(self, save_path):
+        """
+        Download the LHQ 1024 dataset.
+
+        Args:
+            save_path : str
+                A directory to save the data to.
+
+        Returns:
+            save_path_full : str
+                The absolute path to the downloaded data.
+        """
+        import shutil
+
+        # Download to kaggle cache directory
+        kaggle_path = kagglehub.dataset_download("dimensi0n/lhq-1024")
+        self._print(f'Downloaded to Kaggle cache: {kaggle_path}')
+        
+        # Create target directory if it doesn't exist
+        if not isdir(save_path):
+            os.makedirs(save_path)
+        
+        # Copy from kaggle cache to save_path
+        if isdir(kaggle_path):
+            # Remove existing directory if it exists
+            if isdir(save_path):
+                shutil.rmtree(save_path)
+            # Copy entire directory
+            shutil.copytree(kaggle_path, save_path)
+            self._print(f'Copied entire directory from {kaggle_path} to {save_path}')
+
+        return abspath(save_path)
 
 if __name__ == "__main__":
     print("=== Ancient Painting Dataset Downloader ===\n")
     downloader = GetData(verbose=True)
 
-    print("DLP GAN Dataset Download...")
+    print("1. DLP GAN Dataset Download...")
     try:
         dlp_path = downloader.get_dlp_gan_dataset('./datasets/dlp_gan_dataset')
         print(f"✓ DLP GAN dataset downloaded to: {dlp_path}")
     except Exception as e:
         print(f"✗ Error downloading DLP GAN dataset: {e}")
 
-    print("\n2. Downloading Google Drive Datasets...")
+    print("2. Downloading dstn dataset...")
     try:
         all_paths = downloader.get_dstn_dataset('./datasets/dstn_dataset')
-        print("✓ All Google Drive datasets downloaded successfully!")
+        print("✓ All dstn datasets downloaded successfully!")
         print("Dataset paths:")
         for dataset_name, path in all_paths.items():
             print(f"  - {dataset_name}: {path}")
     except Exception as e:
-        print(f"✗ Error downloading Google Drive datasets: {e}")
+        print(f"✗ Error downloading dstn datasets: {e}")
+
+    print("3. Downloading LHQ 1024 Dataset...")
+    try:
+        lhq_path = downloader.get_lhq_1024_dataset('./datasets/lhq_1024')
+        print(f"✓ LHQ 1024 dataset downloaded to: {lhq_path}")
+    except Exception as e:
+        print(f"✗ Error downloading LHQ 1024 dataset: {e}")    
+    

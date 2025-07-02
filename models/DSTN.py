@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import os
 from collections import OrderedDict
@@ -8,9 +7,7 @@ import util.util as util
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-import sys
 from . import net
-from .net import Net, Vgg16
 
 class DSTN(BaseModel):
     def name(self):
@@ -32,9 +29,9 @@ class DSTN(BaseModel):
         self.netG_B = networks.define_G(opt.output_nc, opt.input_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
         self.vggNet = net.Vgg16()
-        net.init_vgg16(opt.vgg_model_dir)
-        print (opt.vgg_model_dir)
-        self.vggNet.load_state_dict(torch.load(os.path.join(opt.vgg_model_dir, "vgg16.weight")))
+        net.init_vgg16(opt.model_dir)
+        print(opt.model_dir)
+        self.vggNet.load_state_dict(torch.load(os.path.join(opt.model_dir, "vgg16.weight")))
         self.vggNet.cuda()
 
         if self.isTrain:

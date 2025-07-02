@@ -16,24 +16,23 @@ from torch.autograd import Variable
 # from torch.utils.serialization import load_lua  # Deprecated in newer PyTorch
 from torchvision import datasets, models, transforms
 #from models.networks import *
-def preprocess_batch(batch):
-    batch = batch.transpose(0, 1)
-    (r, g, b) = torch.chunk(batch, 3)
-    batch = torch.cat((b, g, r))
-    batch = batch.transpose(0, 1)
-    return batch
 
-def subtract_imagenet_mean_batch(batch):
-    """Subtract ImageNet mean pixel-wise from a BGR image."""
-    # tensortype = type(batch.data)
-    # print (tensortype)
-    # print (batch.data.size())
-    # mean = Variable(torch.randn(batch.data.size()).type(torch.cuda.FloatTensor), requires_grad=False)
-    mean = Variable(torch.cuda.FloatTensor(batch.data.size()), requires_grad=False)
-    mean[:, 0, :, :] = 103.939
-    mean[:, 1, :, :] = 116.779
-    mean[:, 2, :, :] = 123.680
-    return batch - Variable(mean)
+
+def subtract_imagenet_mean_batch(batch, mean_values=[103.939, 116.779, 123.680]):
+    """
+    Subtract ImageNet mean pixel-wise from a BGR image.
+    
+    Args:
+        batch: Input tensor in BGR format
+        mean_values: List of mean values for BGR channels. 
+                    Default is ImageNet BGR mean [103.939, 116.779, 123.680]
+    
+    Returns:
+        Tensor with mean subtracted
+    """
+    mean_bgr = torch.tensor(mean_values, device=batch.device)
+    mean = mean_bgr.view(1, 3, 1, 1)
+    return batch - mean
 
 def init_vgg16(model_folder):
     """load the vgg16 model feature"""
@@ -350,9 +349,21 @@ class Net(nn.Module):
 def softmax(x):
     return np.exp(x) / np.sum(np.exp(x), axis=0)
 
-def image_content_pre(content_image):
-    content_image = preprocess_batch(content_image)
-    content_image = subtract_imagenet_mean_batch(content_image)
+def image_content_pre(content_image, mean_values=[103.939, 116.779, 123.680]):
+    """
+    Prepares content image for neural networks.
+    
+    Args:
+        content_image: Input tensor in RGB format
+        mean_values: List of mean values for BGR channels. 
+                    Default is ImageNet BGR mean [103.939, 116.779, 123.680]
+    
+    Returns:
+        Tensor with channels swapped to BGR and mean subtracted
+    """
+    # Swap color channels from RGB to BGR
+    content_image = content_image[:, [2, 1, 0], :, :]
+    content_image = subtract_imagenet_mean_batch(content_image, mean_values)
     return content_image
 
 def gram_matrix(y):

@@ -1,3 +1,4 @@
 data/vgg
 datasets/
 *.pyc
+weights/

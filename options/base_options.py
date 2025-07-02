@@ -37,7 +37,9 @@ class BaseOptions():
         self.parser.add_argument('--resize_or_crop', type=str, default='resize_and_crop', help='scaling and cropping of images at load time [resize_and_crop|crop|scale_width|scale_width_and_crop]')
         self.parser.add_argument('--no_flip', action='store_true', help='if specified, do not flip the images for data augmentation')
         self.parser.add_argument('--init_type', type=str, default='xavier', help='network initialization [normal|xavier|kaiming|orthogonal]')
-        self.parser.add_argument('--vgg_model_dir', type=str, default='./data/vgg', help='the path to vggNet model')
+        self.parser.add_argument('--model_dir', type=str, default='./weights', help='the path to model directory')
+
+        # DSTN haryperparameters
         self.parser.add_argument('--alpha_G', type=float, default=1.0, help='weight for cycle loss (A -> B -> A)')
         self.parser.add_argument('--alpha_F', type=float, default=0.5, help='weight for cycle loss (B -> A -> B)')
         self.parser.add_argument('--beta', type=float, default=10.0, help='weight for content loss (A -> B)')
