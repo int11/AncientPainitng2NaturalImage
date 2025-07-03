@@ -23,7 +23,7 @@ class BaseOptions():
         self.parser.add_argument('--n_layers_D', type=int, default=3, help='only used if which_model_netD==n_layers')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
         self.parser.add_argument('--dataset_mode', type=str, default='unaligned', help='chooses how datasets are loaded. [unaligned | aligned | single]')
-        self.parser.add_argument('--model', type=str, default='DSTN', help='chooses which model to use., test')
+        self.parser.add_argument('--model', type=str, default='DLP_GAN', choices=['cyclegan', 'DSTN', 'DLP_GAN', 'test'], help='chooses which model to use')
         self.parser.add_argument('--which_direction', type=str, default='AtoB', help='AtoB or BtoA')
         self.parser.add_argument('--nThreads', default=2, type=int, help='# threads for loading data')
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
@@ -47,6 +47,11 @@ class BaseOptions():
         # self.parser.add_argument('--w1', type=float, default=0.5, help='weight for D loss Ture')
         # self.parser.add_argument('--w2', type=float, default=0, help='weight for D loss False')
         # self.parser.add_argument('--w3', type=float, default=0.5, help='weight for D loss False')
+
+        # DLP-GAN hyperparameters
+        self.parser.add_argument('--lambda_GAN', type=float, default=1.0, help='weight for GAN loss')
+        self.parser.add_argument('--lambda_Dual', type=float, default=10.0, help='weight for LPIPS loss')
+        self.parser.add_argument('--lambda_id', type=float, default=5.0, help='weight for DexiNed loss')
         self.initialized = True
 
     def parse(self):

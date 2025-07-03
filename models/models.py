@@ -8,6 +8,10 @@ def create_model(opt):
         assert(opt.dataset_mode == 'unaligned')
         from .DSTN import DSTN
         model = DSTN()
+    elif opt.model == 'DLP_GAN':
+        assert(opt.dataset_mode == 'unaligned')
+        from .DLP_GAN import DLP_GAN
+        model = DLP_GAN()
     elif opt.model == 'test':
         assert(opt.dataset_mode == 'single')
         from .test_model import TestModel

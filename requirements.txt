@@ -1,7 +1,7 @@
 torch
 torchvision
 dominate
-beautifulsoup4
 requests
 lxml
-
+kagglehub
+lpips

@@ -8,8 +8,10 @@ from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
 from . import net
+from .networks_.dexined import DexiNed, init_dexined
+import lpips
 
-class DSTN(BaseModel):
+class DLP_GAN(BaseModel):
     def name(self):
         return 'Domain Style Transfer Network.'
 
@@ -25,15 +27,24 @@ class DSTN(BaseModel):
         # Code (paper): G_A (G), G_B (F), Vgg, D_A (D_Y), D_B (D_X)
 
         self.netG_A = networks.define_G(opt.input_nc, opt.output_nc,
-                                        opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
+                                        opt.ngf, 'DLP_GAN_G_A', opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
         self.netG_B = networks.define_G(opt.output_nc, opt.input_nc,
-                                        opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
-        self.vggNet = net.Vgg16()
-        net.init_vgg16(opt.model_dir)
-        print(opt.model_dir)
-        self.vggNet.load_state_dict(torch.load(os.path.join(opt.model_dir, "vgg16.weight")))
-        self.vggNet.cuda()
+                                        opt.ngf, 'DLP_GAN_G_B', opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
 
+        # Load DexiNed
+        self.dexinedNet = DexiNed()
+        init_dexined(opt.model_dir)
+        print(opt.model_dir)
+        self.dexinedNet.load_state_dict(torch.load(os.path.join(opt.model_dir, "dexined.weight")))
+        self.dexinedNet.cuda()
+
+        # Initialize LPIPS loss
+        self.lpips_loss = lpips.LPIPS(net='vgg')
+        self.lpips_loss.cuda()
+        
+        # Load VGG16
+        self.vggNet = self.lpips_loss.net
+        
         if self.isTrain:
             use_sigmoid = opt.no_lsgan
             self.netD_A = networks.define_D(opt.output_nc, opt.ndf,
@@ -76,6 +87,7 @@ class DSTN(BaseModel):
         networks.print_network(self.netG_A)
         networks.print_network(self.netG_B)
         networks.print_network(self.vggNet)
+        networks.print_network(self.dexinedNet)
 
         if self.isTrain:
             networks.print_network(self.netD_A)
@@ -133,12 +145,11 @@ class DSTN(BaseModel):
         self.loss_D_B = loss_D_B.data
 
     def backward_G(self):
-        alpha_G  = self.opt.alpha_G
-        alpha_F = self.opt.alpha_F
-        beta = self.opt.beta
-        gamma = self.opt.gamma
+        lambda_GAN = self.opt.lambda_GAN
+        lambda_id = self.opt.lambda_id
+        lambda_Dual = self.opt.lambda_Dual
         # Identity loss
-        if beta > 0:
+        if lambda_id > 0:
             # G_A should be identity if real_B is fed.
             idt_A = self.netG_A(self.real_B)
             loss_idt_A = self.criterionIdt(idt_A, self.real_B)
@@ -166,28 +177,34 @@ class DSTN(BaseModel):
         pred_fake = self.netD_B(fake_A)
         loss_G_B = self.criterionGAN(pred_fake, True)
 
-        # Forward cycle loss
+
+        # Forward Feature loss
         rec_A = self.netG_B(fake_B)
-        loss_cycle_A = self.criterionCycle(rec_A, self.real_A)
+        real_A_feature = Variable(self.vggNet.forward(net.image_content_pre(self.real_A))[2].data, requires_grad=False)
+        rec_A_feature = Variable(self.vggNet.forward(net.image_content_pre(rec_A))[2].data, requires_grad=True)
+        loss_feature_A = self.criterionCycle(real_A_feature, rec_A_feature)
 
-        # Backward cycle loss
+        # Backward Feature loss
         rec_B = self.netG_A(fake_A)
-        loss_cycle_B = self.criterionCycle(rec_B, self.real_B)
+        real_B_feature = Variable(self.vggNet.forward(net.image_content_pre(self.real_B))[2].data, requires_grad=False)
+        rec_B_feature = Variable(self.vggNet.forward(net.image_content_pre(rec_B))[2].data, requires_grad=True)
+        loss_feature_B = self.criterionCycle(real_B_feature, rec_B_feature)
 
-        #content realA_fakeB
-        real_A_content = Variable(self.vggNet.forward(net.image_content_pre(self.real_A))[1].data, requires_grad=False)
-        fake_B_content = Variable(self.vggNet.forward(net.image_content_pre(fake_B))[1].data, requires_grad=True)
-        loss_Content_A = self.criterionContent(fake_B_content, real_A_content)
-        #content realB_fakeA
-        real_B_content = Variable(self.vggNet.forward(net.image_content_pre(self.real_B))[1].data, requires_grad=False)
-        fake_A_content = Variable(self.vggNet.forward(net.image_content_pre(fake_A))[1].data, requires_grad=True)
-        loss_Content_B = self.criterionContent(fake_A_content, real_B_content)
+
+        #content realA_fakeB using DexiNed + LPIPS
+        loss_semantic_A = self.dexined_lpips_loss(self.real_A, fake_B)
+        #content realB_fakeA using DexiNed + LPIPS  
+        loss_semantic_B = self.dexined_lpips_loss(self.real_B, fake_A)
 
         # combined loss
-        loss_G = loss_G_A + loss_G_B \
-                 + alpha_G * loss_cycle_A + alpha_F * loss_cycle_B\
-                 + beta * (loss_idt_A + loss_idt_B) \
-                 + gamma * (loss_Content_A +loss_Content_B) # Eq (11) in the paper
+        loss_gan = loss_G_A + loss_G_B
+        loss_feature = loss_feature_A + loss_feature_B
+        loss_semantic = loss_semantic_A + loss_semantic_B
+        loss_id = loss_idt_A + loss_idt_B
+        
+        loss_G = lambda_GAN * loss_gan \
+                 + lambda_Dual * (loss_feature + loss_semantic) \
+                 + lambda_id * loss_id
         loss_G.backward()
 
         self.fake_B = fake_B.data
@@ -196,10 +213,10 @@ class DSTN(BaseModel):
         self.rec_B = rec_B.data
         self.loss_G_A = loss_G_A.data
         self.loss_G_B = loss_G_B.data
-        self.loss_cycle_A = loss_cycle_A.data
-        self.loss_cycle_B = loss_cycle_B.data
-        self.loss_Content_A = loss_Content_A.data
-        self.loss_Content_B = loss_Content_B.data
+        self.loss_cycle_A = loss_feature_A.data
+        self.loss_cycle_B = loss_feature_B.data
+        self.loss_Content_A = loss_semantic_A.data
+        self.loss_Content_B = loss_semantic_B.data
 
     def optimize_parameters(self):
         # forward
@@ -245,3 +262,29 @@ class DSTN(BaseModel):
         self.save_network(self.netD_A, 'D_A', label, self.gpu_ids)
         self.save_network(self.netG_B, 'G_B', label, self.gpu_ids)
         self.save_network(self.netD_B, 'D_B', label, self.gpu_ids)
+
+    def dexined_lpips_loss(self, real_img, fake_img):
+        """
+        Compute LPIPS loss using DexiNed output
+        
+        Args:
+            real_img: Real image tensor
+            fake_img: Fake image tensor
+            
+        Returns:
+            LPIPS loss value
+        """
+        # Pass through DexiNed and get the last output
+        real_dexined_output = self.dexinedNet(net.image_content_pre(real_img))[-1]
+        fake_dexined_output = self.dexinedNet(net.image_content_pre(fake_img))[-1]
+        
+        # Convert single channel edge maps to 3-channel for LPIPS
+        # Repeat the channel dimension to make it RGB-like
+        real_dexined_3ch = real_dexined_output.repeat(1, 3, 1, 1)
+        fake_dexined_3ch = fake_dexined_output.repeat(1, 3, 1, 1)
+        
+        # Compute LPIPS loss directly on DexiNed outputs
+        # LPIPS internally extracts VGG features and computes loss for all layers
+        lpips_loss = self.lpips_loss(real_dexined_3ch, fake_dexined_3ch)
+        
+        return lpips_loss.mean()

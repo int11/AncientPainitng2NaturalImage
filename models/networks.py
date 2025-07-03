@@ -108,12 +108,14 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
 
     if which_model_netG == 'resnet_9blocks':
         netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=9, gpu_ids=gpu_ids)
-    elif which_model_netG == 'resnet_6blocks':
+    elif which_model_netG == 'resnet_6blocks' or which_model_netG == 'DLP_GAN_G_B':
         netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=6, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_128':
         netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
     elif which_model_netG == 'unet_256':
         netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids)
+    elif which_model_netG == 'DLP_GAN_G_A':
+        netG = ResnetGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout, n_blocks=2, gpu_ids=gpu_ids, dense_fusion=True)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     if len(gpu_ids) > 0:
@@ -202,7 +204,7 @@ class GANLoss(nn.Module):
 # Code and idea originally from Justin Johnson's architecture.
 # https://github.com/jcjohnson/fast-neural-style/
 class ResnetGenerator(nn.Module):
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[], padding_type='reflect'):
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False, n_blocks=6, gpu_ids=[], padding_type='reflect', dense_fusion=False):
         assert(n_blocks >= 0)
         super(ResnetGenerator, self).__init__()
         self.input_nc = input_nc
@@ -232,6 +234,19 @@ class ResnetGenerator(nn.Module):
         for i in range(n_blocks):
             model += [ResnetBlock(ngf * mult, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
 
+        if dense_fusion:
+            n_layer = 4
+            hidden_dim = ngf * mult // 2
+            model += [DenseFusionBlock(ngf * mult, hidden_dim=hidden_dim, n_layer=n_layer, padding_type=padding_type, norm_layer=norm_layer, use_dropout=use_dropout, use_bias=use_bias)]
+            model += [nn.Conv2d(hidden_dim * n_layer, hidden_dim * n_layer, kernel_size=3,
+                                stride=1, padding=1, bias=use_bias),
+                      norm_layer(hidden_dim * n_layer),
+                      nn.ReLU(True)]
+            model += [nn.Conv2d(hidden_dim * n_layer, ngf * mult, kernel_size=3,
+                                stride=1, padding=1, bias=use_bias),
+                      norm_layer(ngf * mult),
+                      nn.ReLU(True)]
+            
         for i in range(n_downsampling):
             mult = 2**(n_downsampling - i)
             model += [nn.ConvTranspose2d(ngf * mult, int(ngf * mult / 2),
@@ -295,6 +310,55 @@ class ResnetBlock(nn.Module):
         out = x + self.conv_block(x)
         return out
 
+class DenseFusionBlock(nn.Module):
+    def __init__(self, input_dim, hidden_dim, n_layer, padding_type, norm_layer, use_dropout, use_bias):
+        super(DenseFusionBlock, self).__init__()
+        
+        self.conv1 = self.build_conv_block(input_dim, hidden_dim, padding_type, norm_layer, use_dropout, use_bias)
+        
+        self.conv_block = nn.ModuleList()
+        for i in range(n_layer-1):
+            self.conv_block.append(self.build_conv_block(hidden_dim * (i + 1), hidden_dim, padding_type, norm_layer, use_dropout, use_bias))
+
+    def build_conv_block(self, dim, output_dim, padding_type, norm_layer, use_dropout, use_bias):
+        conv_block = []
+        p = 0
+        if padding_type == 'reflect':
+            conv_block += [nn.ReflectionPad2d(1)]
+        elif padding_type == 'replicate':
+            conv_block += [nn.ReplicationPad2d(1)]
+        elif padding_type == 'zero':
+            p = 1
+        else:
+            raise NotImplementedError('padding [%s] is not implemented' % padding_type)
+
+        conv_block += [nn.Conv2d(dim, output_dim, kernel_size=3, padding=p, bias=use_bias),
+                       norm_layer(output_dim),
+                       nn.ReLU(True)]
+        if use_dropout:
+            conv_block += [nn.Dropout(0.5)]
+
+        p = 0
+        if padding_type == 'reflect':
+            conv_block += [nn.ReflectionPad2d(1)]
+        elif padding_type == 'replicate':
+            conv_block += [nn.ReplicationPad2d(1)]
+        elif padding_type == 'zero':
+            p = 1
+        else:
+            raise NotImplementedError('padding [%s] is not implemented' % padding_type)
+        conv_block += [nn.Conv2d(output_dim, output_dim, kernel_size=3, padding=p, bias=use_bias),
+                       norm_layer(output_dim)]
+
+        return nn.Sequential(*conv_block)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        features = [x]
+        for i in self.conv_block:
+            new_features = i(torch.cat(features, 1))
+            features.append(new_features)
+        return torch.cat(features, dim=1)
 
 # Defines the Unet generator.
 # |num_downs|: number of downsamplings in UNet. For example,
