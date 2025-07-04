@@ -80,7 +80,7 @@ class BaseOptions():
 
         # save to the disk
         self.opt.checkpoints_dir = os.path.join(self.opt.dataroot, 'checkpoints', self.opt.model, 'A_%s_B_%s_C_%s_D_%s'%(self.opt.alpha_G, self.opt.alpha_F, self.opt.beta, self.opt.gamma))
-        util.mkdirs(self.opt.checkpoints_dir)
+        os.makedirs(self.opt.checkpoints_dir, exist_ok=True)
         file_name = os.path.join(self.opt.checkpoints_dir, 'opt.txt')
         with open(file_name, 'wt') as opt_file:
             opt_file.write('------------ Options -------------\n')

@@ -23,7 +23,8 @@ class Visualizer():
             self.web_dir = os.path.join(opt.checkpoints_dir,'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
             print('create web directory %s...' % self.web_dir)
-            util.mkdirs([self.web_dir, self.img_dir])
+            os.makedirs(self.web_dir, exist_ok=True)
+            os.makedirs(self.img_dir, exist_ok=True)
         self.log_name = os.path.join(opt.checkpoints_dir, 'loss_log.txt')
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
