@@ -7,7 +7,8 @@ import util.util as util
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-from . import net
+from . import transforms
+from lpips.pretrained_networks import vgg16
 
 class DSTN(BaseModel):
     def name(self):
@@ -28,10 +29,8 @@ class DSTN(BaseModel):
                                         opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
         self.netG_B = networks.define_G(opt.output_nc, opt.input_nc,
                                         opt.ngf, opt.which_model_netG, opt.norm, not opt.no_dropout, opt.init_type, self.gpu_ids)
-        self.vggNet = net.Vgg16()
-        net.init_vgg16(opt.model_dir)
-        print(opt.model_dir)
-        self.vggNet.load_state_dict(torch.load(os.path.join(opt.model_dir, "vgg16.weight")))
+        
+        self.vggNet = vgg16(requires_grad=False, pretrained=True)
         self.vggNet.cuda()
 
         if self.isTrain:
@@ -175,12 +174,12 @@ class DSTN(BaseModel):
         loss_cycle_B = self.criterionCycle(rec_B, self.real_B)
 
         #content realA_fakeB
-        real_A_content = Variable(self.vggNet.forward(net.image_content_pre(self.real_A))[1].data, requires_grad=False)
-        fake_B_content = Variable(self.vggNet.forward(net.image_content_pre(fake_B))[1].data, requires_grad=True)
+        real_A_content = Variable(self.vggNet.forward(transforms.trans_vgg(self.real_A))[1].data, requires_grad=False)
+        fake_B_content = Variable(self.vggNet.forward(transforms.trans_vgg(fake_B))[1].data, requires_grad=True)
         loss_Content_A = self.criterionContent(fake_B_content, real_A_content)
         #content realB_fakeA
-        real_B_content = Variable(self.vggNet.forward(net.image_content_pre(self.real_B))[1].data, requires_grad=False)
-        fake_A_content = Variable(self.vggNet.forward(net.image_content_pre(fake_A))[1].data, requires_grad=True)
+        real_B_content = Variable(self.vggNet.forward(transforms.trans_vgg(self.real_B))[1].data, requires_grad=False)
+        fake_A_content = Variable(self.vggNet.forward(transforms.trans_vgg(fake_A))[1].data, requires_grad=True)
         loss_Content_B = self.criterionContent(fake_A_content, real_B_content)
 
         # combined loss

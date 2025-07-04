@@ -7,7 +7,7 @@ import util.util as util
 from util.image_pool import ImagePool
 from .base_model import BaseModel
 from . import networks
-from . import net
+from . import transforms
 from .networks_.dexined import DexiNed, init_dexined
 import lpips
 
@@ -180,14 +180,14 @@ class DLP_GAN(BaseModel):
 
         # Forward Feature loss
         rec_A = self.netG_B(fake_B)
-        real_A_feature = Variable(self.vggNet.forward(net.image_content_pre(self.real_A))[2].data, requires_grad=False)
-        rec_A_feature = Variable(self.vggNet.forward(net.image_content_pre(rec_A))[2].data, requires_grad=True)
+        real_A_feature = Variable(self.vggNet.forward(transforms.trans_vgg(self.real_A))[2].data, requires_grad=False)
+        rec_A_feature = Variable(self.vggNet.forward(transforms.trans_vgg(rec_A))[2].data, requires_grad=True)
         loss_feature_A = self.criterionCycle(real_A_feature, rec_A_feature)
 
         # Backward Feature loss
         rec_B = self.netG_A(fake_A)
-        real_B_feature = Variable(self.vggNet.forward(net.image_content_pre(self.real_B))[2].data, requires_grad=False)
-        rec_B_feature = Variable(self.vggNet.forward(net.image_content_pre(rec_B))[2].data, requires_grad=True)
+        real_B_feature = Variable(self.vggNet.forward(transforms.trans_vgg(self.real_B))[2].data, requires_grad=False)
+        rec_B_feature = Variable(self.vggNet.forward(transforms.trans_vgg(rec_B))[2].data, requires_grad=True)
         loss_feature_B = self.criterionCycle(real_B_feature, rec_B_feature)
 
 
@@ -275,8 +275,8 @@ class DLP_GAN(BaseModel):
             LPIPS loss value
         """
         # Pass through DexiNed and get the last output
-        real_dexined_output = self.dexinedNet(net.image_content_pre(real_img))[-1]
-        fake_dexined_output = self.dexinedNet(net.image_content_pre(fake_img))[-1]
+        real_dexined_output = self.dexinedNet(transforms.trans_dexinet(real_img))[-1]
+        fake_dexined_output = self.dexinedNet(transforms.trans_dexinet(fake_img))[-1]
         
         # Convert single channel edge maps to 3-channel for LPIPS
         # Repeat the channel dimension to make it RGB-like

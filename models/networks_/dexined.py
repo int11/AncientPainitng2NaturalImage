@@ -7,10 +7,10 @@ from urllib.parse import urlparse
 from PIL import Image
 import numpy as np
 
-# Import the image preprocessing function from the parent net module
+# Import the image preprocessing function from the parent transforms module
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from net import image_content_pre
+from transforms import trans_dexinet
 
 
 def weight_init(m):
@@ -324,7 +324,7 @@ if __name__ == '__main__':
     
     # Apply DexiNed specific preprocessing using the shared function
     # DexiNed uses ImageNet mean subtraction and BGR channel order
-    input = image_content_pre(input)
+    input = trans_dexinet(input)
     
     # target = torch.rand(batch_size, 1, img_height, img_width).to(device)
     print(f"input shape: {input.shape}")
