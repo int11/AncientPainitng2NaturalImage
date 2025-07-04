@@ -66,3 +66,9 @@ The datasets will be automatically organized in the `./datasets/` directory with
 ## Acknowledgments
 Code is inspired by [AncientPainitng2NaturalImage](https://github.com/qiaott/AncientPainitng2NaturalImage).
 
+## Notice
+
+⚠️ **Important Implementation Fix**: The original AncientPainitng2NaturalImage repository has a critical bug in VGG input processing. It subtracts ImageNet mean values `[103.939, 116.779, 123.680]` from images that are already normalized to the `-1~1` scale, resulting in input images with a problematic `-130~-100` scale range being fed into the VGG network.
+
+In this implementation, I have replaced the VGG model with PyTorch's pretrained VGG and fixed this scaling issue. Please be aware of this difference when comparing results.
+
