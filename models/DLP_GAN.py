@@ -37,6 +37,9 @@ class DLP_GAN(BaseModel):
         print(opt.model_dir)
         self.dexinedNet.load_state_dict(torch.load(os.path.join(opt.model_dir, "dexined.weight")))
         self.dexinedNet.cuda()
+        # Freeze DexiNed parameters
+        for param in self.dexinedNet.parameters():
+            param.requires_grad = False
 
         # Initialize LPIPS loss
         self.lpips_loss = lpips.LPIPS(net='vgg')
@@ -236,8 +239,8 @@ class DLP_GAN(BaseModel):
 
     def get_current_errors(self):
         ret_errors = OrderedDict([('D_A', self.loss_D_A), ('G_A', self.loss_G_A), ('Cyc_A', self.loss_cycle_A),
-                                 ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B',  self.loss_cycle_B),
-				 ('Content_A', self.loss_Content_A), ('Content_B', self.loss_Content_B)])
+                                  ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B',  self.loss_cycle_B),
+                                  ('Content_A', self.loss_Content_A), ('Content_B', self.loss_Content_B)])
         if self.opt.identity > 0.0:
             ret_errors['idt_A'] = self.loss_idt_A
             ret_errors['idt_B'] = self.loss_idt_B
