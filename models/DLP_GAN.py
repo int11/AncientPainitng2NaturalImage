@@ -148,11 +148,9 @@ class DLP_GAN(BaseModel):
         self.loss_D_B = loss_D_B.data
 
     def backward_G(self):
-        lambda_GAN = self.opt.lambda_GAN
-        lambda_id = self.opt.lambda_id
-        lambda_Dual = self.opt.lambda_Dual
+        opt = self.opt
         # Identity loss
-        if lambda_id > 0:
+        if opt.beta > 0:
             # G_A should be identity if real_B is fed.
             idt_A = self.netG_A(self.real_B)
             loss_idt_A = self.criterionIdt(idt_A, self.real_B)
@@ -199,15 +197,17 @@ class DLP_GAN(BaseModel):
         #content realB_fakeA using DexiNed + LPIPS  
         loss_semantic_B = self.dexined_lpips_loss(self.real_B, fake_A)
 
-        # combined loss
-        loss_gan = loss_G_A + loss_G_B
-        loss_feature = loss_feature_A + loss_feature_B
-        loss_semantic = loss_semantic_A + loss_semantic_B
-        loss_id = loss_idt_A + loss_idt_B
         
-        loss_G = lambda_GAN * loss_gan \
-                 + lambda_Dual * (loss_feature + loss_semantic) \
-                 + lambda_id * loss_id
+        # DLP_GAN paper loss function
+        # loss_G = opt.lambda_GAN * (loss_G_A + loss_G_B) \
+        #          + opt.lambda_Dual * ((loss_feature_A + loss_feature_B) + (loss_semantic_A + loss_semantic_B)) \
+        #          + opt.lambda_id * (loss_idt_A + loss_idt_B)
+        
+        # DSTN paper loss function
+        loss_G = loss_G_A + loss_G_B \
+                 + opt.alpha_G * loss_feature_A + opt.alpha_F * loss_feature_B\
+                 + opt.beta * (loss_idt_A + loss_idt_B) \
+                 + opt.gamma * (loss_semantic_A + loss_semantic_B) # Eq (11) in the paper
         loss_G.backward()
 
         self.fake_B = fake_B.data

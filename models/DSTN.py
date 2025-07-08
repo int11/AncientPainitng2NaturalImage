@@ -132,12 +132,9 @@ class DSTN(BaseModel):
         self.loss_D_B = loss_D_B.data
 
     def backward_G(self):
-        alpha_G  = self.opt.alpha_G
-        alpha_F = self.opt.alpha_F
-        beta = self.opt.beta
-        gamma = self.opt.gamma
+        opt = self.opt
         # Identity loss
-        if beta > 0:
+        if opt.beta > 0:
             # G_A should be identity if real_B is fed.
             idt_A = self.netG_A(self.real_B)
             loss_idt_A = self.criterionIdt(idt_A, self.real_B)
@@ -184,9 +181,9 @@ class DSTN(BaseModel):
 
         # combined loss
         loss_G = loss_G_A + loss_G_B \
-                 + alpha_G * loss_cycle_A + alpha_F * loss_cycle_B\
-                 + beta * (loss_idt_A + loss_idt_B) \
-                 + gamma * (loss_Content_A +loss_Content_B) # Eq (11) in the paper
+                 + opt.alpha_G * loss_cycle_A + opt.alpha_F * loss_cycle_B\
+                 + opt.beta * (loss_idt_A + loss_idt_B) \
+                 + opt.gamma * (loss_Content_A +loss_Content_B) # Eq (11) in the paper
         loss_G.backward()
 
         self.fake_B = fake_B.data
@@ -218,8 +215,8 @@ class DSTN(BaseModel):
 
     def get_current_errors(self):
         ret_errors = OrderedDict([('D_A', self.loss_D_A), ('G_A', self.loss_G_A), ('Cyc_A', self.loss_cycle_A),
-                                 ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B',  self.loss_cycle_B),
-				 ('Content_A', self.loss_Content_A), ('Content_B', self.loss_Content_B)])
+                                  ('D_B', self.loss_D_B), ('G_B', self.loss_G_B), ('Cyc_B',  self.loss_cycle_B),
+                                  ('Content_A', self.loss_Content_A), ('Content_B', self.loss_Content_B)])
         if self.opt.identity > 0.0:
             ret_errors['idt_A'] = self.loss_idt_A
             ret_errors['idt_B'] = self.loss_idt_B
